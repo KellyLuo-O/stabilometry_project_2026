@@ -29,7 +29,7 @@ def range_cfar(RADAR_PARAM,
         extent=[time_axis[0], time_axis[-1], range_axis[0], range_axis[-1]],
         origin='lower',
         cmap='jet',
-        vmin=55,
+        vmin=35,
     )
 
     plt.xlabel("Time (s)")
@@ -55,7 +55,7 @@ def range_cfar(RADAR_PARAM,
         Train=8,
         Guard=2,
         Pfa=1e-3,
-        BandHalfWidth=0.8,
+        BandHalfWidth=2,
         SoftSigma=0.8,
         SoftFloor=0.05
     )
@@ -80,7 +80,8 @@ def range_cfar(RADAR_PARAM,
         'w-',
         linewidth=1.2
     )
-
+    
+    plt.ylim(0, 5)
     plt.show()
 
     # === sélection des bins de distance ===

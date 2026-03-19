@@ -2,8 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from scipy.signal import get_window, spectrogram
+from scipy.signal.windows import hann
 
 def plot_dopler(RADAR_PARAM, MD, doppler_data):
+
     time_axis = np.linspace(
         0,
         RADAR_PARAM["num_chirps"] * RADAR_PARAM["sweep_time"],
@@ -33,7 +35,29 @@ def plot_dopler(RADAR_PARAM, MD, doppler_data):
     plt.show()
 
 
-def get_doppler(RADAR_PARAM, MD, range_FFT, M, W, bin_indl, bin_indu):
+def get_doppler(RADAR_PARAM, range_FFT, M, W, bin_indl, bin_indu):
+
+    # === paramètres Doppler ===
+
+    MD = {}
+
+    MD["PRF"] = 1 / RADAR_PARAM["sweep_time"]
+    MD["TimeWindowLength"] = 256
+    MD["OverlapFactor"] = 0.95
+    MD["OverlapLength"] = round(MD["TimeWindowLength"] * MD["OverlapFactor"])
+
+    MD["Pad_Factor"] = 4
+    MD["FFTPoints"] = MD["Pad_Factor"] * MD["TimeWindowLength"]
+
+    MD["DopplerBin"] = MD["PRF"] / MD["FFTPoints"]
+
+    MD["DopplerAxis"] = np.arange(
+        -MD["PRF"]/2,
+        MD["PRF"]/2,
+        MD["DopplerBin"]
+    )
+
+    MD["WholeDuration"] = range_FFT.shape[1] / MD["PRF"]
     
     # === paramètres STFT ===
 
@@ -41,9 +65,9 @@ def get_doppler(RADAR_PARAM, MD, range_FFT, M, W, bin_indl, bin_indu):
     Pad_Factor = 4
     OverlapFactor = 0.95
 
-    window2 = get_window('hann', N_SFFT_points)
+    window2 = hann(N_SFFT_points, sym=False)
 
-    use_soft_mask = False
+    use_soft_mask = True
 
     # === sélection des lignes (bins distance) ===
 
@@ -55,7 +79,6 @@ def get_doppler(RADAR_PARAM, MD, range_FFT, M, W, bin_indl, bin_indu):
 
         if len(rows) == 0:
             rows = np.arange(bin_indl, bin_indu + 1)
-
 
     # === calcul spectrogramme Doppler ===
 
@@ -74,12 +97,20 @@ def get_doppler(RADAR_PARAM, MD, range_FFT, M, W, bin_indl, bin_indu):
             window=window2,
             noverlap=int(OverlapFactor * N_SFFT_points),
             nfft=Pad_Factor * N_SFFT_points,
-            mode="magnitude"
+            mode='complex',
+            scaling='spectrum'
         )
 
         S = np.fft.fftshift(S, axes=0)
 
         data_spec_MTI2 += np.abs(S)
+    
+
+    MD["TimeAxis"] = np.linspace(
+        0,
+        MD["WholeDuration"],
+        data_spec_MTI2.shape[1]
+    )
 
     # === inversion + normalisation ===
 
@@ -91,4 +122,4 @@ def get_doppler(RADAR_PARAM, MD, range_FFT, M, W, bin_indl, bin_indu):
     if MaxVal > MinVal:
         data_spec_MTI2 = (data_spec_MTI2 - MinVal) / (MaxVal - MinVal)
 
-    return data_spec_MTI2
+    return MD, data_spec_MTI2
