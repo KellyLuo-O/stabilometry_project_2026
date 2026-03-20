@@ -5,7 +5,7 @@ from .build_mask_cfar_dp import build_mask_cfar_dp
 
 def range_cfar(RADAR_PARAM,
                rangeFFT_data,
-               MIN_RANGE_FOR_DOPPLER_DETECTION=2,
+               MIN_RANGE_FOR_DOPPLER_DETECTION=0,
                MAX_RANGE_FOR_DOPPLER_DETECTION=5):
 
     # =========================
@@ -14,14 +14,13 @@ def range_cfar(RADAR_PARAM,
     _, ns = rangeFFT_data.shape       # Nn de chprs pour l'échelle temps
 
     time_axis = np.arange(ns) * RADAR_PARAM["sweep_time"]
-
     freq_axis = np.arange(0, RADAR_PARAM["NTS"]//2) * (RADAR_PARAM["fs"] / RADAR_PARAM["NTS"])
     range_axis = (freq_axis * 3e8 * RADAR_PARAM["sweep_time"]) / (2 * RADAR_PARAM["bw"])
 
     # =========================
     # Range-Time plot
     # =========================
-    plt.figure("Range-Time")
+    plt.figure(figsize=(12,5))
 
     plt.imshow(
         20*np.log10(np.abs(rangeFFT_data)),
@@ -81,7 +80,7 @@ def range_cfar(RADAR_PARAM,
         linewidth=1.2
     )
     
-    plt.ylim(0, 5)
+    plt.ylim(0, MAX_RANGE_FOR_DOPPLER_DETECTION+2)
     plt.show()
 
     # === sélection des bins de distance ===

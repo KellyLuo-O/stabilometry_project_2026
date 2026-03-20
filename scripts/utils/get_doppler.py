@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from scipy.signal import get_window, spectrogram
+from scipy.signal import spectrogram
 from scipy.signal.windows import hann
 
 def plot_dopler(RADAR_PARAM, MD, doppler_data):
@@ -13,7 +13,7 @@ def plot_dopler(RADAR_PARAM, MD, doppler_data):
     )
     vel_axis = MD["DopplerAxis"] * 3e8 / (2 * RADAR_PARAM["fc"])
 
-    fig, ax = plt.subplots(figsize=(10,6))
+    fig, ax = plt.subplots(figsize=(12,6))
 
     im = ax.imshow(
         20*np.log10(np.abs(doppler_data)),
@@ -37,27 +37,6 @@ def plot_dopler(RADAR_PARAM, MD, doppler_data):
 
 def get_doppler(RADAR_PARAM, range_FFT, M, W, bin_indl, bin_indu):
 
-    # === paramètres Doppler ===
-
-    MD = {}
-
-    MD["PRF"] = 1 / RADAR_PARAM["sweep_time"]
-    MD["TimeWindowLength"] = 256
-    MD["OverlapFactor"] = 0.95
-    MD["OverlapLength"] = round(MD["TimeWindowLength"] * MD["OverlapFactor"])
-
-    MD["Pad_Factor"] = 4
-    MD["FFTPoints"] = MD["Pad_Factor"] * MD["TimeWindowLength"]
-
-    MD["DopplerBin"] = MD["PRF"] / MD["FFTPoints"]
-
-    MD["DopplerAxis"] = np.arange(
-        -MD["PRF"]/2,
-        MD["PRF"]/2,
-        MD["DopplerBin"]
-    )
-
-    MD["WholeDuration"] = range_FFT.shape[1] / MD["PRF"]
     
     # === paramètres STFT ===
 
@@ -73,16 +52,21 @@ def get_doppler(RADAR_PARAM, range_FFT, M, W, bin_indl, bin_indu):
 
     rows = np.arange(bin_indl, bin_indu + 1)
 
-    if "M" in locals() and M is not None:
-        active = np.any(M[rows, :], axis=1)
-        rows = rows[active]
+    # if "M" in locals() and M is not None:
+    #     active = np.any(M[rows, :], axis=1)
+    #     rows = rows[active]
 
-        if len(rows) == 0:
-            rows = np.arange(bin_indl, bin_indu + 1)
+    #     if len(rows) == 0:
+    #         rows = np.arange(bin_indl, bin_indu + 1)
+
+    if 'M' is not None and M.size > 0:
+        rows_masked = rows[np.any(M[rows, :], axis=1)]
+        if rows_masked.size > 0:
+            rows = rows_masked
 
     # === calcul spectrogramme Doppler ===
 
-    data_spec_MTI2 = 0
+    data_spec_MTI2 = None
 
     for RBin in rows:
 
@@ -95,23 +79,18 @@ def get_doppler(RADAR_PARAM, range_FFT, M, W, bin_indl, bin_indu):
         f, t, S = spectrogram(
             x,
             window=window2,
+            fs=1 / RADAR_PARAM["sweep_time"],
             noverlap=int(OverlapFactor * N_SFFT_points),
             nfft=Pad_Factor * N_SFFT_points,
             mode='complex',
             scaling='spectrum'
         )
-
         S = np.fft.fftshift(S, axes=0)
-
-        data_spec_MTI2 += np.abs(S)
+        if data_spec_MTI2 is None:
+            data_spec_MTI2 = np.abs(S)
+        else:
+            data_spec_MTI2 += np.abs(S)
     
-
-    MD["TimeAxis"] = np.linspace(
-        0,
-        MD["WholeDuration"],
-        data_spec_MTI2.shape[1]
-    )
-
     # === inversion + normalisation ===
 
     data_spec_MTI2 = np.flipud(data_spec_MTI2)
@@ -121,5 +100,25 @@ def get_doppler(RADAR_PARAM, range_FFT, M, W, bin_indl, bin_indu):
 
     if MaxVal > MinVal:
         data_spec_MTI2 = (data_spec_MTI2 - MinVal) / (MaxVal - MinVal)
+
+    
+    # === paramètres Doppler ===
+
+    MD = {}
+
+    MD["PRF"] = 1 / RADAR_PARAM["sweep_time"]
+    MD["TimeWindowLength"] = 256
+    MD["OverlapFactor"] = 0.95
+    MD["OverlapLength"] = round(MD["TimeWindowLength"] * MD["OverlapFactor"])
+
+    MD["Pad_Factor"] = 4
+    MD["FFTPoints"] = MD["Pad_Factor"] * MD["TimeWindowLength"]
+
+    MD["DopplerBin"] = MD["PRF"] / data_spec_MTI2.shape[0]
+    MD["DopplerAxis"] = np.arange(-MD["PRF"]/2, MD["PRF"]/2, MD["DopplerBin"])
+    MD["WholeDuration"] = range_FFT.shape[1] / MD["PRF"]
+
+    MD["TimeAxis"] = np.linspace(0, MD["WholeDuration"], data_spec_MTI2.shape[1])
+
 
     return MD, data_spec_MTI2

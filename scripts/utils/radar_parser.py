@@ -124,7 +124,7 @@ def radar24_parser(file):
             "order": order,
             "bw": Freq_stop - Freq_start,
             "fc": Freq_start + (Freq_stop - Freq_start) / 2,
-            "fs": NumSweeps / Sweep_Time_Number
+            "fs": LASN / Sweep_Time_Number
         }
 
     return RADAR_PARAM, radar_data
