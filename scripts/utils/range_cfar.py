@@ -54,7 +54,7 @@ def range_cfar(RADAR_PARAM,
         Train=8,
         Guard=2,
         Pfa=1e-3,
-        BandHalfWidth=2,
+        BandHalfWidth=0.8,
         SoftSigma=0.8,
         SoftFloor=0.05
     )
