@@ -14,44 +14,89 @@ The code in this repo is ainly about :
 ## File organization 
 
 ```bash
-stabilogram_extraction/
-└── data/                       # Directory containing radar and force platform measurements
-    └── antoine/                # Directory containing measurements of subject Antoine
-    └── kelly/                  # Directory containing measurements of subject Kelly
-└── results/                    # Directory containing result figures
-└── scripts/                    # Direcotry containing program sripts
-    └── utils/                  # Direcotry containing utils functions
-    └── code_descriptors_postural_control 
-└── README.md          # Documentation principale
-
-stabilogram_extraction/
-├───data                        # Directory containing radar and force platform measurements
-│   ├───antoine                 # Directory containing measurements of subject Antoine
-│   │   ├───plateforme
-│   │   ├───radar24
-│   │   └───radar9
-│   └───kelly                   # Directory containing measurements fo subject Kelly 
-├───results                     # Directory containing result figures
-│   ├───antoine
-│   └───kelly
-└───scripts                     # Directory containing all program scrpits
-    ├───code_descriptors_postural_control     # librairy for postural control metrics
-    │   ├───constants
-    │   ├───descriptors
-    │   └───stabilogram
-    ├───utils
-    │   ├───build_mask_cfar_dp.py
-    │   ├───get_dopler.py
-    │   ├───get_max_velocity.py
-    │   ├───get_range.py
-    │   ├───radar_parser.py
-    │   └───range_cfar.py
-    ├───radar_9GHz_processing.ipynb     # Jupyter notebook for radar (9GHz) processing
-    ├───radar_24GHz_processing.ipynb    # Jupyter notebook for radar (24GHz) processing
-    ├───radar_processing_clean.ipynb    # Jupyter notebook for processing both radar
-    ├───radar_stabilogram.ipynb         # Jupyter notebook recovering pseudo stabilogram from velocity
-    └───platform_stabilogram.py         # Jupyter notebook for vizualizing analyzing data from force plateform
-
+stabilometry_project_2026/
+│
+├── data/
+│   ├── all_data/                   # unified dataset for the main analysis (5 acquisitions)
+│   │   ├── data1_AP.bin … data5_AP.bin   # 9 GHz radar binary files (anteroposterior axis)
+│   │   └── data1_ML.bin … data5_ML.bin   # 24 GHz radar binary files (mediolateral axis)
+│   │
+│   ├── antoine/                    # raw data from subject 1
+│   │   ├── plateforme/
+│   │   │   ├── test1.xml … test4.xml     # Zebris session metadata + start timestamp
+│   │   │   └── test1/ … test4/           # Zebris CSV exports per acquisition
+│   │   │       ├── gait-line.csv         # CoP trajectory (AP and ML, used for stabilogram)
+│   │   │       ├── force-curve.csv
+│   │   │       └── parameters.csv
+│   │   ├── radar9/   test1.bin … test4.bin   # 9 GHz raw binary (AP axis)
+│   │   └── radar24/  test1.bin … test4.bin   # 24 GHz raw binary (ML axis)
+│   │
+│   └── kelly/                      # raw data from subject 2
+│       ├── A151P148R1S5D0.bin       # 9 GHz radar binary
+│       ├── iq_tx12.bin              # 24 GHz radar binary
+│       ├── plat.xml                 # Zebris session metadata
+│       └── gait-line.csv            # Zebris CoP trajectory
+│
+├── results/
+│   ├── platform_descriptors.csv    # 73 CoP variables computed from force platform
+│   ├── radar_descriptors.csv       # 73 CoP variables computed from radar pseudo-stabilogram
+│   ├── icc.csv                     # Intraclass Correlation Coefficients (radar vs platform)
+│   ├── tables/
+│   │   ├── data1_AP_velocity.csv … data5_ML_velocity.csv  # extracted velocity vectors per axis
+│   ├── antoine/                    # intermediate results (position CSVs, stabilogram PNGs)
+│   ├── kelly/                      # intermediate results (stabilogram + statokinesigram PNGs)
+│   └── figures/                    # resulting figures
+│
+└── scripts/
+    │
+    ├── 01_radar_processing.ipynb       # Step 1: full radar pipeline
+    │                                   #  reads .bin → parser → Range FFT → MTI → CFAR
+    │                                   #  → Doppler STFT → velocity extraction
+    │                                   #  → saves velocity CSVs to results/tables/
+    │
+    ├── 02_radar_stabilogram.ipynb      # Step 2: pseudo-stabilogram reconstruction
+    │                                   #  loads velocity CSVs → dominant-frequency filter
+    │                                   #  → trapezoidal integration → centering
+    │                                   #  → plots stabilogram + statokinesigram
+    │                                   #  → computes 73 descriptors → saves radar_descriptors.csv
+    │
+    ├── 03_platform_stabilogram.ipynb   # Step 3: reference stabilogram from Zebris
+    │                                   #  parses .xml for start timestamp
+    │                                   #  → crops + synchronises gait-line.csv
+    │                                   #  → filters + centres CoP signal
+    │                                   #  → plots stabilogram + statokinesigram
+    │                                   #  → computes 73 descriptors → saves platform_descriptors.csv
+    │
+    ├── 04_analyzing_descriptors.ipynb  # Step 4: comparison and analysis
+    │                                   #  loads radar_descriptors.csv + platform_descriptors.csv
+    │                                   #  → computes relative error per variable per acquisition
+    │                                   #  → computes ICC → saves icc.csv
+    │                                   #  → generates comparison figures
+    │
+    ├── radar/                          # reusable radar signal processing package
+    │   ├── parser.py                   # reads .bin, de-interleaves I/Q, reshapes to (NTS × N_Chirps)
+    │   ├── range_fft.py                # Blackman-Harris window + colums-wise FFT → range-time matrix
+    │   ├── cfar.py                     # CFAR detector: adaptive threshold → detected range bins
+    │   ├── build_mask_cfar_dp.py       # builds the binary detection mask used by cfar.py
+    │   ├── doppler.py                  # Hann window + STFT row-wise on target bins → spectrogram
+    │   ├── velocity.py                 # extracts peak Doppler frequency → radial velocity vector
+    │   └── __init__.py
+    │
+    ├── code_descriptors_postural_control/   # postural descriptor library (Quijoux et al. 2021)
+    │   ├── descriptors/
+    │   │   ├── positional.py           # RMS, range, ellipse area, mean distance, planar deviation…
+    │   │   ├── dynamic.py              # mean velocity, mean frequency, sway area/s, fractal dim…
+    │   │   ├── frequentist.py          # total power, 50%/95% power freq, centroidal freq…
+    │   │   ├── stochastic.py           # SDA: diffusion coefficients, scaling exponents, critical time
+    │   │   └── indices_corresp.py      # maps variable index → name (used for CSV column headers)
+    │   ├── stabilogram/
+    │   │   ├── stato.py                # stabilogram and statokinesigram plotting utilities
+    │   │   └── swarii.py               # non-uniform resampling correction (for irregular sampling)
+    │   └── constants/labels.py         # axis labels and variable name strings
+    │
+    └── tests/                          # legacy exploratory notebooks (kept for reference only)
+        ├── radar_9GHz_processing.ipynb
+        └── radar_24GHz_processong.ipynb
 ```
 
 ## Method 
