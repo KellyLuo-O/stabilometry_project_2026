@@ -13,7 +13,7 @@ def plot_dopler(RADAR_PARAM, MD, doppler_data):
     )
     vel_axis = MD["DopplerAxis"] * 3e8 / (2 * RADAR_PARAM["fc"])
 
-    fig, ax = plt.subplots(figsize=(12,6))
+    fig, ax = plt.subplots()
 
     im = ax.imshow(
         20*np.log10(np.abs(doppler_data)),

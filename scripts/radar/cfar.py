@@ -20,7 +20,7 @@ def cfar(RADAR_PARAM,
     # =========================
     # Range-Time plot
     # =========================
-    plt.figure(figsize=(12,5))
+    plt.figure()
 
     plt.imshow(
         20*np.log10(np.abs(rangeFFT_data)),

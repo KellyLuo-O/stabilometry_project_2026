@@ -26,12 +26,12 @@ def get_max_velocity(RADAR_PARAM, MD, doppler_data, output_filepath):
     df.to_csv(output_filepath, index=False)
 
     # Tracer la vitesse maximale détectée
-    plt.figure(figsize=(12,4))
+    plt.figure()
     plt.plot(MD["TimeAxis"], vmax_time, linewidth=1.5)
     plt.grid(True)
-    plt.xlabel("Temps (s)")
-    plt.ylabel("Vitesse max (m/s)")
-    plt.title("Vitesse maximale détectée")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Velocity (m/s)")
+    plt.title("Max velocity extracted")
     plt.show()
 
     
