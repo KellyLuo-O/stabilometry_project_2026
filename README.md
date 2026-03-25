@@ -5,99 +5,89 @@
 Research project supervised by Olivier Romain 
 Part of CY University, Master ESI 2025-2026
 
+This project investigates the use of dual FMCW radar sensors as a privacy-preserving, contact-free alternative to clinical force platforms for stabilometry. Two radars (9 GHz and 24 GHz) capture Anteroposterior (AP) and Mediolateral (ML) body sway simultaneously. Doppler velocity signals are processed to reconstruct pseudo-stabilograms, from which a full set of 73 postural control descriptors is computed and compared against a Zebris FDM force platform used as ground-truth reference.
+
 This projet is about studying stabilometry with FMCW radar. 
 The code in this repo is ainly about :
 - extracting and processing FMCW radar 
 - recovering pseudo stabilogram and therefore statokinesigram
 - extract postural control metrics and descriptors
 
-## File organization 
+## Project Structure
 
-```bash
+```
 stabilometry_project_2026/
 │
-├── data/
-│   ├── all_data/                   # unified dataset for the main analysis (5 acquisitions)
-│   │   ├── data1_AP.bin … data5_AP.bin   # 9 GHz radar binary files (anteroposterior axis)
-│   │   └── data1_ML.bin … data5_ML.bin   # 24 GHz radar binary files (mediolateral axis)
-│   │
-│   ├── antoine/                    # raw data from subject 1
-│   │   ├── plateforme/
-│   │   │   ├── test1.xml … test4.xml     # Zebris session metadata + start timestamp
-│   │   │   └── test1/ … test4/           # Zebris CSV exports per acquisition
-│   │   │       ├── gait-line.csv         # CoP trajectory (AP and ML, used for stabilogram)
-│   │   │       ├── force-curve.csv
-│   │   │       └── parameters.csv
-│   │   ├── radar9/   test1.bin … test4.bin   # 9 GHz raw binary (AP axis)
-│   │   └── radar24/  test1.bin … test4.bin   # 24 GHz raw binary (ML axis)
-│   │
-│   └── kelly/                      # raw data from subject 2
-│       ├── A151P148R1S5D0.bin       # 9 GHz radar binary
-│       ├── iq_tx12.bin              # 24 GHz radar binary
-│       ├── plat.xml                 # Zebris session metadata
-│       └── gait-line.csv            # Zebris CoP trajectory
+├── data/                          # Raw acquisition files
+│   ├── dataset1/                  # 10-second acquisitions (proof-of-concept)
+│   └── dataset2/                  # 30-second acquisitions (ISPGR-compliant)
 │
-├── results/
-│   ├── platform_descriptors.csv    # 73 CoP variables computed from force platform
-│   ├── radar_descriptors.csv       # 73 CoP variables computed from radar pseudo-stabilogram
-│   ├── icc.csv                     # Intraclass Correlation Coefficients (radar vs platform)
-│   ├── tables/
-│   │   ├── data1_AP_velocity.csv … data5_ML_velocity.csv  # extracted velocity vectors per axis
-│   ├── antoine/                    # intermediate results (position CSVs, stabilogram PNGs)
-│   ├── kelly/                      # intermediate results (stabilogram + statokinesigram PNGs)
-│   └── figures/                    # resulting figures
+├── results/                       # All generated outputs
+│   ├── figures/                   # Stabilograms, statokinesigrams, spectrograms
+│   └── tables/                    # Descriptor comparison tables (CSV)
 │
-└── scripts/
+└── scripts/                       # All processing code
+    ├── 01_radar_processing.ipynb          # Full radar signal processing pipeline
+    ├── 02_radar_stabilogram.ipynb         # Pseudo-stabilogram reconstruction
+    ├── 03_platform_stabilogram.ipynb      # Force platform signal extraction
+    ├── 04_analyzing_descriptors.ipynb     # Descriptor computation and comparison
     │
-    ├── 01_radar_processing.ipynb       # Step 1: full radar pipeline
-    │                                   #  reads .bin → parser → Range FFT → MTI → CFAR
-    │                                   #  → Doppler STFT → velocity extraction
-    │                                   #  → saves velocity CSVs to results/tables/
+    ├── radar/                             # Radar processing utility modules
+    │   ├── parser.py                      # Binary .bin file parser (IQ deinterleaving)
+    │   ├── range_fft.py                   # Range FFT and range-time matrix
+    │   ├── build_mask_cfar_dp.py          # CFAR detector and target bin selection
+    │   ├── cfar.py                        # CFAR threshold estimation
+    │   ├── doppler.py                     # STFT-based Doppler spectrogram
+    │   └── velocity.py                    # Peak velocity extraction from spectrogram
     │
-    ├── 02_radar_stabilogram.ipynb      # Step 2: pseudo-stabilogram reconstruction
-    │                                   #  loads velocity CSVs → dominant-frequency filter
-    │                                   #  → trapezoidal integration → centering
-    │                                   #  → plots stabilogram + statokinesigram
-    │                                   #  → computes 73 descriptors → saves radar_descriptors.csv
-    │
-    ├── 03_platform_stabilogram.ipynb   # Step 3: reference stabilogram from Zebris
-    │                                   #  parses .xml for start timestamp
-    │                                   #  → crops + synchronises gait-line.csv
-    │                                   #  → filters + centres CoP signal
-    │                                   #  → plots stabilogram + statokinesigram
-    │                                   #  → computes 73 descriptors → saves platform_descriptors.csv
-    │
-    ├── 04_analyzing_descriptors.ipynb  # Step 4: comparison and analysis
-    │                                   #  loads radar_descriptors.csv + platform_descriptors.csv
-    │                                   #  → computes relative error per variable per acquisition
-    │                                   #  → computes ICC → saves icc.csv
-    │                                   #  → generates comparison figures
-    │
-    ├── radar/                          # reusable radar signal processing package
-    │   ├── parser.py                   # reads .bin, de-interleaves I/Q, reshapes to (NTS × N_Chirps)
-    │   ├── range_fft.py                # Blackman-Harris window + colums-wise FFT → range-time matrix
-    │   ├── cfar.py                     # CFAR detector: adaptive threshold → detected range bins
-    │   ├── build_mask_cfar_dp.py       # builds the binary detection mask used by cfar.py
-    │   ├── doppler.py                  # Hann window + STFT row-wise on target bins → spectrogram
-    │   ├── velocity.py                 # extracts peak Doppler frequency → radial velocity vector
-    │   └── __init__.py
-    │
-    ├── code_descriptors_postural_control/   # postural descriptor library (Quijoux et al. 2021)
-    │   ├── descriptors/
-    │   │   ├── positional.py           # RMS, range, ellipse area, mean distance, planar deviation…
-    │   │   ├── dynamic.py              # mean velocity, mean frequency, sway area/s, fractal dim…
-    │   │   ├── frequentist.py          # total power, 50%/95% power freq, centroidal freq…
-    │   │   ├── stochastic.py           # SDA: diffusion coefficients, scaling exponents, critical time
-    │   │   └── indices_corresp.py      # maps variable index → name (used for CSV column headers)
-    │   ├── stabilogram/
-    │   │   ├── stato.py                # stabilogram and statokinesigram plotting utilities
-    │   │   └── swarii.py               # non-uniform resampling correction (for irregular sampling)
-    │   └── constants/labels.py         # axis labels and variable name strings
-    │
-    └── tests/                          # legacy exploratory notebooks (kept for reference only)
-        ├── radar_9GHz_processing.ipynb
-        └── radar_24GHz_processong.ipynb
+    └── code_descriptors_postural_control/ # External library (Quijoux et al. 2021)
+                                           # Computes all 73 CoP descriptors
 ```
+
+---
+
+## Main Scripts
+
+| Notebook | Description |
+|---|---|
+| `01_radar_processing.ipynb` | Loads raw `.bin` files, applies Range FFT, MTI filter, CFAR detection, and STFT to extract the Doppler velocity signal for both radars. Exports velocity as CSV. |
+| `02_radar_stabilogram.ipynb` | Integrates the exported velocity using the trapezoidal rule to reconstruct the pseudo-stabilogram (AP + ML). Centers the signal and plots stabilogram and statokinesigram. |
+| `03_platform_stabilogram.ipynb` | Parses the `.xml` start timestamp, crops and synchronizes the `gait-line.csv` CoP signal from the Zebris platform, centers it, and plots the reference stabilogram. |
+| `04_analyzing_descriptors.ipynb` | Computes the full set of 73 postural control descriptors on both the radar pseudo-stabilogram and the platform reference, then computes and reports relative errors. |
+
+---
+
+## Dataset
+
+| Dataset | Acquisitions | Subject | Duration | Condition |
+|---|---|---|---|---|
+| Dataset 1 | Data 1 – 4 | Subject 1 | 10 s | Simulated large postural movements |
+| Dataset 1 | Data 5 | Subject 2 | 10 s | Quiet standing |
+| Dataset 2 | Data 1 – 7 | Subject 1 | 30 s | Quiet standing |
+| Dataset 2 | Data 8 – 13 | Subject 1 | 30 s | Simulated large postural movements |
+
+> Dataset 1 is primarily used for signal processing development and proof-of-concept validation.  
+> Dataset 2 (30 s) complies with ISPGR recommendations and is used for the full descriptor comparison.
+
+Each acquisition contains:
+- `data#_ML.bin` or `/radar9/test#.bin` — raw IQ data from the 9 GHz radar (ML axis)
+- `data#_AP.bin` or `/radar24/test#.bin` — raw IQ data from the 24 GHz radar (AP axis)
+- `gait-line.csv` — time-stamped CoP coordinates from the Zebris FDM platform
+- `config.xml` — acquisition metadata including the recording start timestamp
+
+---
+
+## Radar Parameters
+
+| Parameter | 9 GHz radar (ML) | 24 GHz radar (AP) |
+|---|---|---|
+| Bandwidth | 400 MHz | 1000 MHz |
+| Carrier frequency | 9.8 GHz | 25 GHz |
+| Range resolution | 37.5 cm | 15 cm |
+| Sweep time | 4 ms | 4 ms |
+| Samples per chirp | 1024 | 1024 |
+
+---
 
 ## Method 
 
@@ -138,4 +128,9 @@ stabilometry_project_2026/
 - Get synchronized measure from gait-line.csv
 - Center
 - Plot stabilogram, statokinesigram 
-- extract postural control metrics and descriptors 
+- extract postural control metrics and descriptors
+
+## References
+
+- Quijoux et al. (2021) — *A review of center of pressure variables to quantify standing balance in elderly people: Algorithms and open-access code.* Physiological Reports. [doi:10.14814/phy2.15067](https://doi.org/10.14814/phy2.15067)
+- Scoppa et al. (2012) — *Clinical stabilometry standardization.* Gait & Posture.
